@@ -51,4 +51,169 @@
   .pipeline-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
   .pipe-step { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 10px; text-align: center; font-size: 10px; color: var(--muted); transition: all 0.3s; }
   .pipe-step .pipe-icon { font-size: 22px; margin-bottom: 6px; display: block; }
-  .pipe-step.active { border-color: var(--accent​​​​​​​​​​​​​​​​
+  .pipe-step.active { border-color: var(--accent); color: var(--text); background: rgba(255,92,26,0.06); }
+  .pipe-step.done-step { border-color: var(--success); color: var(--success); }
+  #resultPanel { display: none; }
+  .result-card { background: linear-gradient(135deg, rgba(255,92,26,0.08), rgba(157,78,221,0.08)); border: 1px solid var(--accent); border-radius: 16px; padding: 32px; text-align: center; }
+  .result-card h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; margin-bottom: 8px; background: linear-gradient(135deg, var(--success), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .result-card p { color: var(--muted); font-size: 12px; margin-bottom: 24px; line-height: 1.8; }
+  .btn-download { display: inline-flex; align-items: center; gap: 10px; padding: 16px 32px; background: linear-gradient(135deg, var(--success), var(--accent3)); border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; color: #000; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .btn-download:hover { transform: translateY(-2px); }
+  .btn-reset { display: block; width: 100%; margin-top: 14px; padding: 12px; background: transparent; border: 1px solid var(--border); border-radius: 10px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+  .btn-reset:hover { border-color: var(--accent2); color: var(--accent2); }
+  .error-box { background: rgba(255,50,50,0.08); border: 1px solid rgba(255,50,50,0.3); border-radius: 10px; padding: 16px; font-size: 12px; color: #ff6b6b; margin-top: 14px; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">🎬</div>
+      <div class="logo-text">SHORTS PIPELINE</div>
+    </div>
+    <h1>Drop Video.<br>Get a Short.</h1>
+    <p>Fully automated · Pixar 3D · AI narrated</p>
+  </div>
+
+  <div id="uploadPanel">
+    <div class="panel">
+      <div class="panel-label"><span>01</span> Upload your story video</div>
+      <div class="upload-box" id="videoBox">
+        <input type="file" accept="video/*" id="videoInput" onchange="handleVideo(event)">
+        <span class="icon">🎥</span>
+        <h3>Drop your video here</h3>
+        <p>MP4, MOV, AVI — characters extracted automatically</p>
+      </div>
+      <div style="margin-top:14px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--muted);line-height:1.8;">
+        ✅ Characters extracted from video automatically<br>
+        ✅ Script transcribed from audio<br>
+        ✅ Pixar 3D scenes generated and animated<br>
+        ✅ Voiceover merged into final MP4
+      </div>
+    </div>
+    <div class="info-strip">
+      <div class="info-item"><div class="num">~8</div><div class="lbl">Scenes</div></div>
+      <div class="info-item"><div class="num">~12m</div><div class="lbl">Processing</div></div>
+      <div class="info-item"><div class="num">Free</div><div class="lbl">60 credits/day</div></div>
+    </div>
+    <button class="btn-start" id="startBtn" onclick="startPipeline()" disabled>⚡ Start Automation</button>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div id="progressPanel">
+    <div class="panel">
+      <div class="progress-header">
+        <div class="progress-title">Pipeline Running...</div>
+        <div class="progress-pct" id="progressPct">0%</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="pipeline-steps">
+        <div class="pipe-step" id="pipeStep1"><span class="pipe-icon">🎙️</span>Transcribe</div>
+        <div class="pipe-step" id="pipeStep2"><span class="pipe-icon">📝</span>Script</div>
+        <div class="pipe-step" id="pipeStep3"><span class="pipe-icon">🖼️</span>Images</div>
+        <div class="pipe-step" id="pipeStep4"><span class="pipe-icon">🎬</span>Animate</div>
+        <div class="pipe-step" id="pipeStep5"><span class="pipe-icon">🎙️</span>Voiceover</div>
+        <div class="pipe-step" id="pipeStep6"><span class="pipe-icon">🔧</span>Merge</div>
+        <div class="pipe-step" id="pipeStep7"><span class="pipe-icon">✅</span>Done</div>
+      </div>
+      <div class="step-log" id="stepLog"><div class="log-item current">⏳ Starting...</div></div>
+    </div>
+  </div>
+
+  <div id="resultPanel">
+    <div class="panel">
+      <div class="result-card">
+        <h2>🎉 Your Short is Ready!</h2>
+        <p id="resultDetails">Processing complete</p>
+        <a id="downloadBtn" href="#" class="btn-download" download>⬇️ Download Short MP4</a>
+        <button class="btn-reset" onclick="resetPipeline()">← Make Another Short</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let videoFile = null, currentJobId = null, pollInterval = null;
+
+  function handleVideo(e) {
+    videoFile = e.target.files[0];
+    if (!videoFile) return;
+    const box = document.getElementById('videoBox');
+    box.classList.add('has-file');
+    box.querySelector('.icon').textContent = '✅';
+    box.querySelector('h3').textContent = videoFile.name;
+    box.querySelector('p').textContent = `${(videoFile.size/1024/1024).toFixed(1)} MB · Ready`;
+    document.getElementById('startBtn').disabled = false;
+  }
+
+  async function startPipeline() {
+    if (!videoFile) return;
+    const formData = new FormData();
+    formData.append('video', videoFile);
+    document.getElementById('uploadPanel').style.display = 'none';
+    document.getElementById('progressPanel').style.display = 'block';
+    try {
+      const res = await fetch('/api/pipeline/start', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start');
+      currentJobId = data.jobId;
+      pollInterval = setInterval(pollStatus, 3000);
+    } catch (err) {
+      document.getElementById('errorBox').style.display = 'block';
+      document.getElementById('errorBox').textContent = `❌ ${err.message}`;
+      document.getElementById('progressPanel').style.display = 'none';
+      document.getElementById('uploadPanel').style.display = 'block';
+    }
+  }
+
+  async function pollStatus() {
+    if (!currentJobId) return;
+    try {
+      const res = await fetch(`/api/status/${currentJobId}`);
+      const job = await res.json();
+      const pct = job.progress || 0;
+      document.getElementById('progressPct').textContent = `${pct}%`;
+      document.getElementById('progressFill').style.width = `${pct}%`;
+      const log = document.getElementById('stepLog');
+      if (job.steps && job.steps.length > 0) {
+        log.innerHTML = job.steps.map((s, i) => `<div class="log-item ${i === job.steps.length-1 ? 'current' : 'done-log'}">${s.step}</div>`).join('');
+        log.scrollTop = log.scrollHeight;
+      }
+      const ranges = [[0,12],[12,25],[25,60],[60,80],[80,88],[88,99],[99,100]];
+      ranges.forEach(([min,max],idx) => {
+        const el = document.getElementById(`pipeStep${idx+1}`);
+        if (!el) return;
+        el.classList.remove('active','done-step');
+        if (pct >= max) el.classList.add('done-step');
+        else if (pct >= min) el.classList.add('active');
+      });
+      if (job.status === 'done') { clearInterval(pollInterval); showResult(job); }
+      else if (job.status === 'failed') { clearInterval(pollInterval); alert(`❌ ${job.error}`); resetPipeline(); }
+    } catch(e) { console.error(e); }
+  }
+
+  function showResult(job) {
+    document.getElementById('progressPanel').style.display = 'none';
+    document.getElementById('resultPanel').style.display = 'block';
+    document.getElementById('resultDetails').textContent = `"${job.title || 'Your Short'}" · ${job.scenes || '?'} scenes`;
+    const btn = document.getElementById('downloadBtn');
+    btn.href = `/output/${job.outputFile}`;
+    btn.download = job.outputFile;
+  }
+
+  function resetPipeline() {
+    videoFile = null; currentJobId = null;
+    if (pollInterval) clearInterval(pollInterval);
+    document.getElementById('resultPanel').style.display = 'none';
+    document.getElementById('progressPanel').style.display = 'none';
+    document.getElementById('uploadPanel').style.display = 'block';
+    document.getElementById('videoBox').classList.remove('has-file');
+    document.getElementById('videoBox').querySelector('.icon').textContent = '🎥';
+    document.getElementById('videoBox').querySelector('h3').textContent = 'Drop your video here';
+    document.getElementById('videoBox').querySelector('p').textContent = 'MP4, MOV, AVI — characters extracted automatically';
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stepLog').innerHTML = '<div class="log-item current">⏳ Starting...</div>';
+  }
+</script>
+</body>
+</html>
