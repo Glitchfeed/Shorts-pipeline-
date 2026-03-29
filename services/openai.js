@@ -5,7 +5,7 @@ async function generateSceneImage(scenePrompt, outputPath) {
   const fullPrompt = `Pixar 3D animated movie scene, ${scenePrompt}, 9:16 vertical aspect ratio, cinematic composition, vibrant Pixar color grading, professional 3D render, dramatic lighting, high quality animation style, sharp details, no text, no watermarks`;
 
   const response = await axios.post(
-    'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell',
+    'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0',
     { inputs: fullPrompt },
     {
       headers: {
@@ -14,7 +14,7 @@ async function generateSceneImage(scenePrompt, outputPath) {
         'Accept': 'image/jpeg'
       },
       responseType: 'arraybuffer',
-      timeout: 60000
+      timeout: 120000
     }
   );
 
