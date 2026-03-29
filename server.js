@@ -14,9 +14,11 @@ if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
 app.use('/api/pipeline', require('./routes/pipeline'));
 app.use('/api/status', require('./routes/status'));
+app.use('/api/scheduler', require('./routes/scheduler'));
+app.use('/api/youtube', require('./routes/youtube'));
 app.use('/output', express.static(tempDir));
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
