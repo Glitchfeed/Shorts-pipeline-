@@ -33,4 +33,4 @@ function deleteJob(jobId) {
   jobs.delete(jobId);
 }
 
-module.exports = { createJob, updateJob, getJob, deleteJob };
+module.exports = { createJob, updateJob, getJob, deleteJob, jobs };
