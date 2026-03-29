@@ -10,7 +10,15 @@ const openaiService = require('../services/openai');
 const pixverse = require('../services/pixverse');
 const ffmpegService = require('../services/ffmpeg');
 const claudeService = require('../services/claude');
-const { createJob, updateJob } = require('../services/jobTracker');
+const { createJob, updateJob, getJob, jobs } = require('../services/jobTracker');
+
+// GET /api/pipeline/jobs
+router.get('/jobs', (req, res) => {
+  const allJobs = Array.from(jobs.values())
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 50);
+  res.json(allJobs);
+});
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -27,17 +35,32 @@ router.post('/start', upload.single('video'), async (req, res) => {
   const jobId = uuidv4();
   const tempDir = path.join(__dirname, '../temp', jobId);
   fs.mkdirSync(tempDir, { recursive: true });
-  if (!req.file) return res.status(400).json({ error: 'Video file is required' });
+  const channel = req.body?.channel || 'warmtales';
+
+  // If no video and not warmtales, use script pipeline
+  if (!req.file && channel !== 'warmtales') {
+    res.json({ jobId, message: 'Pipeline started' });
+    const { runScriptPipeline } = require('../services/pipeline-runner');
+    createJob(jobId);
+    updateJob(jobId, { channel, status: 'running', step: '🚀 Starting...', progress: 2 });
+    runScriptPipeline(jobId, '', channel, tempDir).catch(err => {
+      updateJob(jobId, { status: 'failed', error: err.message, step: `❌ Failed: ${err.message}` });
+    });
+    return;
+  }
+
+  if (!req.file) return res.status(400).json({ error: 'Video file is required for WarmTales' });
+
   res.json({ jobId, message: 'Pipeline started' });
-  runPipeline(jobId, req.file, tempDir).catch(err => {
+  runPipeline(jobId, req.file, channel, tempDir).catch(err => {
     updateJob(jobId, { status: 'failed', error: err.message, step: `❌ Failed: ${err.message}` });
   });
 });
 
-async function runPipeline(jobId, videoFile, tempDir) {
+async function runPipeline(jobId, videoFile, channel, tempDir) {
   createJob(jobId);
 
-  updateJob(jobId, { step: '🎙️ Transcribing script from video...', progress: 5, status: 'running' });
+  updateJob(jobId, { channel, step: '🎙️ Transcribing script from video...', progress: 5, status: 'running' });
   const transcript = await gemini.transcribeVideo(videoFile.path);
   updateJob(jobId, { step: '✅ Transcription complete', progress: 12 });
 
@@ -85,7 +108,26 @@ async function runPipeline(jobId, videoFile, tempDir) {
   const outputPath = path.join(__dirname, '../temp', outputFilename);
   await ffmpegService.mergeClipsWithAudio(clipPaths, audioPath, outputPath);
 
-  updateJob(jobId, { status: 'done', step: '🎉 Your Short is ready!', progress: 100, outputFile: outputFilename, title: scriptData.title, scenes: scriptData.scenes.length });
+  const { uploadToYouTube, isConnected } = require('../services/youtube');
+  let youtubeUrl = null;
+  if (isConnected(channel)) {
+    try {
+      updateJob(jobId, { step: '📤 Uploading to YouTube...', progress: 93 });
+      const result = await uploadToYouTube(outputPath, scriptData.title, channel);
+      youtubeUrl = result.url;
+    } catch(e) { console.log('YouTube upload failed:', e.message); }
+  }
+
+  updateJob(jobId, {
+    status: 'done',
+    step: youtubeUrl ? '🎉 Uploaded to YouTube!' : '🎉 Video ready!',
+    progress: 100,
+    outputFile: outputFilename,
+    title: scriptData.title,
+    scenes: scriptData.scenes.length,
+    channel,
+    youtubeUrl
+  });
 }
 
 module.exports = router;
