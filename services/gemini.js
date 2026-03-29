@@ -7,68 +7,44 @@ const FormData = require('form-data');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
 
-// Transcribe video using OpenAI Whisper
 async function transcribeVideo(videoPath) {
   const audioPath = videoPath.replace(/\.[^/.]+$/, '') + '_audio.mp3';
-  
   try {
-    // Extract audio from video
     execSync(`ffmpeg -i "${videoPath}" -vn -acodec mp3 -q:a 2 "${audioPath}" -y`, { stdio: 'pipe' });
-    
-    // Send to OpenAI Whisper
     const form = new FormData();
     form.append('file', fs.createReadStream(audioPath), { filename: 'audio.mp3', contentType: 'audio/mp3' });
-    form.append('model', 'whisper-1');
+    form.append('model', 'whisper-large-v3');
     form.append('language', 'en');
-    
+    form.append('response_format', 'text');
     const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
+      'https://api.groq.com/openai/v1/audio/transcriptions',
       form,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_KEY}`,
+          'Authorization': 'Bearer ' + process.env.GROQ_API_KEY,
           ...form.getHeaders()
         }
       }
     );
-    
-    return response.data.text.trim();
+    return (typeof response.data === 'string' ? response.data : response.data.text).trim();
   } finally {
     if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
   }
 }
 
-// Format transcript into scenes using Claude
 async function formatIntoScenes(transcript) {
   const response = await anthropic.messages.create({
     model: 'claude-opus-4-5',
     max_tokens: 2000,
     messages: [{
       role: 'user',
-      content: `You are a YouTube Shorts script formatter.
-Take this transcript and format it into 6-8 dramatic scenes.
-TRANSCRIPT: ${transcript}
-Return ONLY valid JSON, nothing else:
-{
-  "title": "Short punchy title",
-  "scenes": [
-    {
-      "id": 1,
-      "location": "Brief location description",
-      "narration": "The narration text for this scene",
-      "characters": ["Character1"],
-      "emotion": "dominant emotion"
-    }
-  ]
-}`
+      content: 'You are a YouTube Shorts script formatter.\nTake this transcript and format it into 6-8 dramatic scenes.\nTRANSCRIPT: ' + transcript + '\nReturn ONLY valid JSON, nothing else:\n{\n  "title": "Short punchy title",\n  "scenes": [\n    {\n      "id": 1,\n      "location": "Brief location description",\n      "narration": "The narration text for this scene",\n      "characters": ["Character1"],\n      "emotion": "dominant emotion"\n    }\n  ]\n}'
     }]
   });
-
   const text = response.content[0].text.trim();
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
-// Voiceover using Google TTS
 async function generateVoiceover(text, outputPath, voiceName) {
   voiceName = voiceName || 'en-US-Journey-D';
   const url = 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + process.env.GOOGLE_AI_KEY;
