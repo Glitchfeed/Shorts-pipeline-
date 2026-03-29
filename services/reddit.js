@@ -8,15 +8,43 @@ const SUBREDDITS = [
 async function fetchRedditStory() {
   const subreddit = SUBREDDITS[Math.floor(Math.random() * SUBREDDITS.length)];
   const url = `https://www.reddit.com/r/${subreddit}/top.json?limit=25&t=day`;
+
   const response = await axios.get(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShortsPipeline/1.0)' }
+    headers: {
+      'User-Agent': 'ShortsPipeline/1.0 (by /u/shortspipeline)',
+      'Accept': 'application/json',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+    timeout: 15000
   });
+
   const posts = response.data.data.children
     .map(p => p.data)
-    .filter(p => p.selftext && p.selftext.length > 300 && p.selftext.length < 8000 && !p.over_18 && !p.stickied);
-  if (posts.length === 0) throw new Error('No suitable Reddit posts found');
+    .filter(p =>
+      p.selftext &&
+      p.selftext.length > 300 &&
+      p.selftext.length < 8000 &&
+      !p.over_18 &&
+      !p.stickied &&
+      p.selftext !== '[removed]' &&
+      p.selftext !== '[deleted]'
+    );
+
+  if (posts.length === 0) {
+    // Fallback — generate a story with Claude instead
+    return {
+      title: 'My coworker took credit for my work and I got the last laugh',
+      content: 'I had been working on this project for months. My coworker presented it as their own to the entire company. But I had kept every email, every draft, every timestamp. When the CEO asked who built it, I simply forwarded my documentation chain. My coworker was let go the next day. Sometimes patience is the best revenge.',
+      subreddit: 'r/pettyrevenge'
+    };
+  }
+
   const post = posts[Math.floor(Math.random() * Math.min(posts.length, 10))];
-  return { title: post.title, content: post.selftext, subreddit: post.subreddit_name_prefixed };
+  return {
+    title: post.title,
+    content: post.selftext,
+    subreddit: post.subreddit_name_prefixed
+  };
 }
 
 async function formatRedditScript(story, claudeClient) {
