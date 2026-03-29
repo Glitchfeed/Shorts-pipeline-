@@ -1,49 +1,49 @@
-const axios = require('axios');
+const Anthropic = require('@anthropic-ai/sdk');
 
-const SUBREDDITS = [
-  'AmItheAsshole', 'tifu', 'confession',
-  'pettyrevenge', 'MaliciousCompliance', 'relationship_advice'
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
+
+const STORY_THEMES = [
+  'workplace revenge story', 'entitled person gets karma',
+  'neighbor dispute with satisfying ending', 'family drama with plot twist',
+  'friend betrayal and redemption', 'malicious compliance at work',
+  'landlord gets what they deserve', 'coworker sabotage backfires',
+  'petty revenge that worked perfectly', 'standing up to a bully',
+  'customer service horror story', 'roommate drama with twist ending',
+  'dating disaster that turned funny', 'boss gets humiliated publicly',
+  'Karen gets shut down spectacularly'
 ];
 
 async function fetchRedditStory() {
-  const subreddit = SUBREDDITS[Math.floor(Math.random() * SUBREDDITS.length)];
-  const url = `https://www.reddit.com/r/${subreddit}/top.json?limit=25&t=day`;
+  const theme = STORY_THEMES[Math.floor(Math.random() * STORY_THEMES.length)];
+  console.log('Generating story about: ' + theme);
+  return await generateOriginalStory(theme);
+}
 
-  const response = await axios.get(url, {
-    headers: {
-      'User-Agent': 'ShortsPipeline/1.0 (by /u/shortspipeline)',
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    timeout: 15000
+async function generateOriginalStory(theme) {
+  const response = await anthropic.messages.create({
+    model: 'claude-opus-4-5',
+    max_tokens: 1000,
+    messages: [{
+      role: 'user',
+      content: 'Write a completely original, realistic first-person Reddit-style story about: ' + theme + '\n\nRequirements:\n- First person perspective, feels like a real personal experience\n- 200-350 words\n- Has a satisfying twist or ending\n- Dramatic, engaging, emotionally resonant\n- Specific details that make it feel real\n- Return ONLY the story text, no title, no intro, no explanation'
+    }]
   });
 
-  const posts = response.data.data.children
-    .map(p => p.data)
-    .filter(p =>
-      p.selftext &&
-      p.selftext.length > 300 &&
-      p.selftext.length < 8000 &&
-      !p.over_18 &&
-      !p.stickied &&
-      p.selftext !== '[removed]' &&
-      p.selftext !== '[deleted]'
-    );
+  const story = response.content[0].text.trim();
 
-  if (posts.length === 0) {
-    // Fallback — generate a story with Claude instead
-    return {
-      title: 'My coworker took credit for my work and I got the last laugh',
-      content: 'I had been working on this project for months. My coworker presented it as their own to the entire company. But I had kept every email, every draft, every timestamp. When the CEO asked who built it, I simply forwarded my documentation chain. My coworker was let go the next day. Sometimes patience is the best revenge.',
-      subreddit: 'r/pettyrevenge'
-    };
-  }
+  const titleResponse = await anthropic.messages.create({
+    model: 'claude-opus-4-5',
+    max_tokens: 100,
+    messages: [{
+      role: 'user',
+      content: 'Write a short punchy Reddit-style title for this story. Max 12 words. Make it dramatic and clickable. Return ONLY the title, nothing else:\n\n' + story
+    }]
+  });
 
-  const post = posts[Math.floor(Math.random() * Math.min(posts.length, 10))];
   return {
-    title: post.title,
-    content: post.selftext,
-    subreddit: post.subreddit_name_prefixed
+    title: titleResponse.content[0].text.trim(),
+    content: story,
+    subreddit: 'r/pettyrevenge'
   };
 }
 
@@ -53,16 +53,7 @@ async function formatRedditScript(story, claudeClient) {
     max_tokens: 1000,
     messages: [{
       role: 'user',
-      content: `You are a YouTube Shorts narrator.
-Convert this Reddit post into a dramatic 60-second narration script.
-Title: ${story.title}
-Content: ${story.content.substring(0, 3000)}
-Rules:
-- Start with a hook like "So this actually happened..."
-- Keep it under 150 words total
-- Make it dramatic and engaging
-- End with a punchy conclusion
-- Return ONLY the narration text, nothing else`
+      content: 'You are a YouTube Shorts narrator.\nConvert this story into a dramatic 60-second narration script.\nTitle: ' + story.title + '\nContent: ' + story.content + '\nRules:\n- Start with a hook like "So this actually happened..."\n- Keep it under 150 words total\n- Make it dramatic and engaging\n- End with a punchy conclusion or moral\n- Return ONLY the narration text, nothing else'
     }]
   });
   return response.content[0].text.trim();
