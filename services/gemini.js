@@ -1,27 +1,46 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Anthropic = require('@anthropic-ai/sdk');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
 
+// Transcribe video using Claude Vision
 async function transcribeVideo(videoPath) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   const videoData = fs.readFileSync(videoPath);
   const base64Video = videoData.toString('base64');
   const ext = path.extname(videoPath).slice(1).toLowerCase();
-  const mimeType = ext === 'mp4' ? 'video/mp4' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
-  const result = await model.generateContent([
-    { inlineData: { mimeType, data: base64Video } },
-    { text: 'Transcribe ALL spoken words from this video exactly as said. Return ONLY the transcription text, nothing else.' }
-  ]);
-  return result.response.text().trim();
+  const mediaType = ext === 'mp4' ? 'video/mp4' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
+
+  const response = await anthropic.messages.create({
+    model: 'claude-opus-4-5',
+    max_tokens: 2000,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'document',
+          source: { type: 'base64', media_type: mediaType, data: base64Video }
+        },
+        {
+          type: 'text',
+          text: 'Transcribe ALL spoken words from this video exactly as said. Return ONLY the transcription text, nothing else. No timestamps, no speaker labels, just the raw spoken content.'
+        }
+      ]
+    }]
+  });
+
+  return response.content[0].text.trim();
 }
 
+// Format transcript into scenes using Claude
 async function formatIntoScenes(transcript) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  const result = await model.generateContent(`
-You are a YouTube Shorts script formatter.
+  const response = await anthropic.messages.create({
+    model: 'claude-opus-4-5',
+    max_tokens: 2000,
+    messages: [{
+      role: 'user',
+      content: `You are a YouTube Shorts script formatter.
 Take this transcript and format it into 6-8 dramatic scenes.
 TRANSCRIPT: ${transcript}
 Return ONLY valid JSON, nothing else:
@@ -36,15 +55,20 @@ Return ONLY valid JSON, nothing else:
       "emotion": "dominant emotion"
     }
   ]
-}`);
-  const text = result.response.text().trim();
-  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}`
+    }]
+  });
+
+  const text = response.content[0].text.trim();
+  return JSON.parse(text.replace(/\`\`\`json|\`\`\`/g, '').trim());
 }
 
-async function generateVoiceover(text, outputPath, voiceName = 'en-US-Journey-D') {
-  const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.GOOGLE_AI_KEY}`;
+// Voiceover using Google TTS (keep this — it's free and separate from Gemini)
+async function generateVoiceover(text, outputPath, voiceName) {
+  voiceName = voiceName || 'en-US-Journey-D';
+  const url = 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + process.env.GOOGLE_AI_KEY;
   const response = await axios.post(url, {
-    input: { text },
+    input: { text: text },
     voice: { languageCode: 'en-US', name: voiceName, ssmlGender: 'MALE' },
     audioConfig: { audioEncoding: 'MP3', speakingRate: 1.05, pitch: -1.0 }
   });
