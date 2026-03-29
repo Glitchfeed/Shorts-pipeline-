@@ -10,10 +10,10 @@ const TOKEN_FILES = {
 };
 
 const CHANNEL_HASHTAGS = {
-  glitchfeed: '#reddit #redditstories #storytime #viral #shorts #fyp #drama #aita #tifu',
-  glitchmind: '#ai #artificialintelligence #tech #chatgpt #openai #shorts #fyp #future #aitools',
-  kids:        '#facts #didyouknow #learnfacts #kidsfacts #science #shorts #fyp #wowfacts',
-  warmtales:   '#warmtales #heartwarming #shorts #fyp #foryou #inspiring #wholesome',
+  glitchfeed: '#shorts #reddit #fyp #redditstories #storytime #viral #drama #aita #tifu #relatable #storiesofreddit',
+  glitchmind: '#shorts #ai #fyp #artificialintelligence #tech #chatgpt #openai #future #aitools #technology #viral',
+  kids:        '#shorts #facts #fyp #didyouknow #learnfacts #kidsfacts #science #wowfacts #amazingfacts #education',
+  warmtales:   '#shorts #heartwarming #fyp #warmtales #foryou #inspiring #wholesome #emotional #feelgood #story',
 };
 
 const CHANNEL_EMOJIS = {
@@ -21,6 +21,13 @@ const CHANNEL_EMOJIS = {
   glitchmind: '🤖',
   kids:        '⭐',
   warmtales:   '🌸',
+};
+
+const CHANNEL_TAGS = {
+  glitchfeed: ['shorts','reddit','fyp','redditstories','storytime','viral','drama','aita','tifu','relatable'],
+  glitchmind: ['shorts','ai','fyp','artificialintelligence','tech','chatgpt','openai','future','aitools','technology'],
+  kids:        ['shorts','facts','fyp','didyouknow','learnfacts','kidsfacts','science','wowfacts','amazingfacts','education'],
+  warmtales:   ['shorts','heartwarming','fyp','warmtales','foryou','inspiring','wholesome','emotional','feelgood','story'],
 };
 
 function makeClient(channel) {
@@ -61,8 +68,11 @@ async function uploadToYouTube(videoPath, title, channel, options = {}) {
   const yt = google.youtube({ version: 'v3', auth });
   const emoji = CHANNEL_EMOJIS[channel] || '🎬';
   const hashtags = CHANNEL_HASHTAGS[channel] || '#shorts #fyp';
+  const tags = CHANNEL_TAGS[channel] || ['shorts', 'fyp'];
   const isKids = channel === 'kids';
   const fullTitle = `${emoji} ${title}`.slice(0, 100);
+
+  console.log(`📤 Uploading to YouTube [${channel}]: ${fullTitle}`);
 
   const response = await yt.videos.insert({
     part: ['snippet', 'status'],
@@ -70,7 +80,7 @@ async function uploadToYouTube(videoPath, title, channel, options = {}) {
       snippet: {
         title: fullTitle,
         description: hashtags,
-        tags: hashtags.split(' ').filter(t => t.startsWith('#')).map(t => t.slice(1)),
+        tags,
         categoryId: '22',
         defaultLanguage: 'en',
       },
@@ -80,13 +90,17 @@ async function uploadToYouTube(videoPath, title, channel, options = {}) {
         madeForKids: isKids,
       },
     },
-    media: { mimeType: 'video/mp4', body: fs.createReadStream(videoPath) },
+    media: {
+      mimeType: 'video/mp4',
+      body: fs.createReadStream(videoPath),
+    },
   });
 
   const videoId = response.data.id;
   const url = `https://youtube.com/shorts/${videoId}`;
-  console.log(`✅ Uploaded to YouTube: ${url}`);
+  console.log(`✅ Uploaded: ${url}`);
 
+  // Post pinned comment with hashtags
   try {
     const yt2 = google.youtube({ version: 'v3', auth });
     await yt2.commentThreads.insert({
@@ -94,7 +108,11 @@ async function uploadToYouTube(videoPath, title, channel, options = {}) {
       requestBody: {
         snippet: {
           videoId,
-          topLevelComment: { snippet: { textOriginal: `${hashtags}\n\nFollow for more! 🔔` } },
+          topLevelComment: {
+            snippet: {
+              textOriginal: `${hashtags}\n\nFollow for more! 🔔`
+            }
+          },
         },
       },
     });
@@ -112,7 +130,11 @@ async function getChannelInfo(channel) {
     const res = await yt.channels.list({ part: ['snippet'], mine: true });
     const ch = res.data.items?.[0];
     if (!ch) return null;
-    return { channelId: ch.id, title: ch.snippet?.title, handle: ch.snippet?.customUrl || ch.id };
+    return {
+      channelId: ch.id,
+      title: ch.snippet?.title,
+      handle: ch.snippet?.customUrl || ch.id,
+    };
   } catch (e) {
     console.error(`YouTube getChannelInfo error for ${channel}:`, e.message);
     return null;
@@ -126,4 +148,11 @@ function saveToken(channel, tokens) {
   fs.writeFileSync(file, JSON.stringify(tokens, null, 2));
 }
 
-module.exports = { uploadToYouTube, isConnected, getChannelInfo, saveToken, TOKEN_FILES, makeClient };
+module.exports = {
+  uploadToYouTube,
+  isConnected,
+  getChannelInfo,
+  saveToken,
+  TOKEN_FILES,
+  makeClient,
+};
