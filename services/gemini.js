@@ -6,7 +6,7 @@ const axios = require('axios');
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY);
 
 async function transcribeVideo(videoPath) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   const videoData = fs.readFileSync(videoPath);
   const base64Video = videoData.toString('base64');
   const ext = path.extname(videoPath).slice(1).toLowerCase();
@@ -19,7 +19,7 @@ async function transcribeVideo(videoPath) {
 }
 
 async function formatIntoScenes(transcript) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   const result = await model.generateContent(`
 You are a YouTube Shorts script formatter.
 Take this transcript and format it into 6-8 dramatic scenes.
@@ -41,11 +41,11 @@ Return ONLY valid JSON, nothing else:
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
-async function generateVoiceover(text, outputPath) {
+async function generateVoiceover(text, outputPath, voiceName = 'en-US-Journey-D') {
   const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.GOOGLE_AI_KEY}`;
   const response = await axios.post(url, {
     input: { text },
-    voice: { languageCode: 'en-US', name: 'en-US-Journey-D', ssmlGender: 'MALE' },
+    voice: { languageCode: 'en-US', name: voiceName, ssmlGender: 'MALE' },
     audioConfig: { audioEncoding: 'MP3', speakingRate: 1.05, pitch: -1.0 }
   });
   const buffer = Buffer.from(response.data.audioContent, 'base64');
