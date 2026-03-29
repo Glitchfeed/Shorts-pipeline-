@@ -2,41 +2,21 @@ const axios = require('axios');
 const fs = require('fs');
 
 async function generateSceneImage(scenePrompt, outputPath) {
-  const fullPrompt = `Pixar 3D animated movie scene, ${scenePrompt}, cinematic composition, vibrant colors, professional 3D render, dramatic lighting, high quality`;
+  const fullPrompt = encodeURIComponent(
+    'Pixar 3D animated movie scene, ' + scenePrompt + ', cinematic composition, vibrant Pixar color grading, professional 3D render, dramatic lighting, high quality animation style, sharp details, no text, no watermarks'
+  );
 
-  // Try multiple models in order
-  const models = [
-    'stabilityai/stable-diffusion-2-1',
-    'runwayml/stable-diffusion-v1-5',
-    'CompVis/stable-diffusion-v1-4'
-  ];
+  // Pollinations.ai — completely free, no API key needed
+  const url = 'https://image.pollinations.ai/prompt/' + fullPrompt + '?width=576&height=1024&model=flux&nologo=true&enhance=true';
 
-  for (const model of models) {
-    try {
-      const response = await axios.post(
-        'https://api-inference.huggingface.co/models/' + model,
-        { inputs: fullPrompt },
-        {
-          headers: {
-            'Authorization': 'Bearer ' + process.env.HF_API_KEY,
-            'Content-Type': 'application/json'
-          },
-          responseType: 'arraybuffer',
-          timeout: 120000
-        }
-      );
+  const response = await axios.get(url, {
+    responseType: 'arraybuffer',
+    timeout: 120000,
+    headers: { 'User-Agent': 'ShortsPipeline/1.0' }
+  });
 
-      if (response.data && response.data.length > 1000) {
-        fs.writeFileSync(outputPath, response.data);
-        console.log('Generated image with model: ' + model);
-        return outputPath;
-      }
-    } catch (err) {
-      console.log(model + ' failed: ' + err.message + ', trying next...');
-    }
-  }
-
-  throw new Error('All image generation models failed');
+  fs.writeFileSync(outputPath, response.data);
+  return outputPath;
 }
 
 module.exports = { generateSceneImage };
