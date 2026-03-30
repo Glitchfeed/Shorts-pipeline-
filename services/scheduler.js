@@ -37,11 +37,7 @@ function getNextRuns() {
     const next = new Date(estNow);
     next.setHours(s.hour, s.minute, 0, 0);
     if (next <= estNow) next.setDate(next.getDate() + 1);
-    return {
-      channel: s.channel,
-      time: String(s.hour).padStart(2,'0') + ':' + String(s.minute).padStart(2,'0') + ' EST',
-      nextRun: next.toISOString()
-    };
+    return { channel: s.channel, time: String(s.hour).padStart(2,'0') + ':' + String(s.minute).padStart(2,'0') + ' EST', nextRun: next.toISOString() };
   });
 }
 
@@ -50,11 +46,9 @@ function checkSchedule() {
   const now = new Date();
   const estOffset = -4 * 60;
   const estNow = new Date(now.getTime() + (now.getTimezoneOffset() + estOffset) * 60000);
-  const currentHour = estNow.getHours();
-  const currentMinute = estNow.getMinutes();
   for (let i = 0; i < SCHEDULE.length; i++) {
     const slot = SCHEDULE[i];
-    if (slot.hour === currentHour && currentMinute === 0) {
+    if (slot.hour === estNow.getHours() && estNow.getMinutes() === 0) {
       addLog('Scheduler triggered for: ' + slot.channel);
       triggerAutoGenerate(slot.channel);
       break;
@@ -63,10 +57,7 @@ function checkSchedule() {
 }
 
 async function triggerAutoGenerate(channel) {
-  if (isRunning) {
-    addLog('Already running, skipping ' + channel);
-    return;
-  }
+  if (isRunning) { addLog('Already running, skipping ' + channel); return; }
   isRunning = true;
   const jobId = uuidv4();
   const tempDir = path.join(__dirname, '../temp', jobId);
@@ -101,7 +92,7 @@ async function triggerAutoGenerate(channel) {
     await runScriptPipeline(jobId, script, channel, tempDir);
     schedulerState.lastRun = new Date().toISOString();
     addLog('Done for ' + channel + ': job ' + jobId);
-  } catch (err) {
+  } catch(err) {
     addLog('Failed for ' + channel + ': ' + err.message);
     updateJob(jobId, { status: 'failed', error: err.message, step: 'Failed: ' + err.message });
   } finally {
@@ -121,10 +112,7 @@ function startScheduler() {
 }
 
 function stopScheduler() {
-  if (schedulerInterval) {
-    clearInterval(schedulerInterval);
-    schedulerInterval = null;
-  }
+  if (schedulerInterval) { clearInterval(schedulerInterval); schedulerInterval = null; }
   schedulerState.enabled = false;
   addLog('Scheduler stopped');
 }
@@ -135,4 +123,4 @@ function getSchedulerState() {
 
 startScheduler();
 
-module.exports = { startScheduler: startScheduler, stopScheduler: stopScheduler, getSchedulerState: getSchedulerState, triggerAutoGenerate: triggerAutoGenerate };
+module.exports = { startScheduler, stopScheduler, getSchedulerState, triggerAutoGenerate };
