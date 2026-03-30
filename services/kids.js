@@ -16,4 +16,10 @@ async function fetchKidsContent(claudeClient) {
     max_tokens: 1000,
     messages: [{
       role: 'user',
-      content: 'You are a fun kids YouTube Shorts narrator.\nCreate an exciting 60-second educational script about: ' + topic + '\nRules: Simple words for ages 6-12, start with "Did you know..." or "Whoa check this out!", 3-4 amazing facts, under 130 words, fun​​​​​​​​​​​​​​​​
+      content: 'You are a fun kids YouTube Shorts narrator.\nCreate an exciting 60-second educational script about: ' + topic + '\nRules: Simple words for ages 6-12, start with "Did you know..." or "Whoa check this out!", 3-4 amazing facts, under 130 words, fun and energetic, end with "How cool is that?!". Return ONLY the narration text.'
+    }]
+  });
+  return { topic, script: response.content[0].text.trim() };
+}
+
+module.exports = { fetchKidsContent };
