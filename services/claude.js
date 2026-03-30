@@ -18,28 +18,13 @@ async function extractCharactersFromVideo(videoPath, tempDir) {
   });
 
   const response = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1500,
     messages: [{
       role: 'user',
       content: [
         ...imageContents,
-        { type: 'text', text: `Identify all unique people in these frames. Return ONLY valid JSON:
-{
-  "characters": [
-    {
-      "name": "fitting name",
-      "gender": "male/female",
-      "age": "age range",
-      "ethnicity": "description",
-      "hair": "hair description",
-      "face": "facial features",
-      "clothing": "what they wear",
-      "expression": "typical expression",
-      "pixarDescription": "full one-sentence Pixar 3D character description"
-    }
-  ]
-}` }
+        { type: 'text', text: 'Identify all unique people in these frames. Return ONLY valid JSON:\n{\n  "characters": [\n    {\n      "name": "fitting name",\n      "gender": "male/female",\n      "age": "age range",\n      "ethnicity": "description",\n      "hair": "hair description",\n      "face": "facial features",\n      "clothing": "what they wear",\n      "expression": "typical expression",\n      "pixarDescription": "full one-sentence Pixar 3D character description"\n    }\n  ]\n}' }
       ]
     }]
   });
@@ -52,23 +37,13 @@ async function extractCharactersFromVideo(videoPath, tempDir) {
 }
 
 async function buildVisualPrompts(scenes, characters) {
-  const characterSummary = characters.map(c => `${c.name}: ${c.pixarDescription}`).join('\n');
+  const characterSummary = characters.map(c => c.name + ': ' + c.pixarDescription).join('\n');
   const response = await client.messages.create({
-    model: 'claude-opus-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2500,
     messages: [{
       role: 'user',
-      content: `You are a Pixar art director.
-Characters: ${characterSummary}
-Scenes: ${JSON.stringify(scenes)}
-Return ONLY valid JSON array:
-[
-  {
-    "sceneId": 1,
-    "prompt": "Pixar 3D animated scene, [character details], [location], [action], [lighting], [camera angle], 9:16 vertical composition",
-    "charactersInScene": ["name1"]
-  }
-]`
+      content: 'You are a Pixar art director.\nCharacters: ' + characterSummary + '\nScenes: ' + JSON.stringify(scenes) + '\nReturn ONLY valid JSON array:\n[\n  {\n    "sceneId": 1,\n    "prompt": "Pixar 3D animated scene, [character details], [location], [action], [lighting], [camera angle], 9:16 vertical composition",\n    "charactersInScene": ["name1"]\n  }\n]'
     }]
   });
   const text = response.content[0].text.trim();
