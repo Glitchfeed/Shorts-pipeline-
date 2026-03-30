@@ -1,3 +1,7 @@
+const Anthropic = require('@anthropic-ai/sdk');
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_KEY });
+
 const KIDS_TOPICS = [
   'amazing animal facts', 'how volcanoes work', 'why is the sky blue',
   'fascinating ocean creatures', 'how rainbows form', 'cool space facts',
@@ -7,24 +11,9 @@ const KIDS_TOPICS = [
 
 async function fetchKidsContent(claudeClient) {
   const topic = KIDS_TOPICS[Math.floor(Math.random() * KIDS_TOPICS.length)];
-  const response = await claudeClient.messages.create({
-    model: 'claude-opus-4-5',
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 1000,
     messages: [{
       role: 'user',
-      content: `You are a fun kids YouTube Shorts narrator.
-Create an exciting 60-second educational script about: ${topic}
-Rules:
-- Use simple words kids aged 6-12 understand
-- Start with "Did you know..." or "Whoa, check this out!"
-- Include 3-4 amazing facts
-- Keep it under 130 words
-- Make it fun and energetic
-- End with "How cool is that?!" or similar
-- Return ONLY the narration text, nothing else`
-    }]
-  });
-  return { topic, script: response.content[0].text.trim() };
-}
-
-module.exports = { fetchKidsContent };
+      content: 'You are a fun kids YouTube Shorts narrator.\nCreate an exciting 60-second educational script about: ' + topic + '\nRules: Simple words for ages 6-12, start with "Did you know..." or "Whoa check this out!", 3-4 amazing facts, under 130 words, fun​​​​​​​​​​​​​​​​
